@@ -42,7 +42,7 @@ _background_image = 'common.png'
 _FONT_NAME_MAC = 'Helvetica.ttc'
 '''The name of the file that contains the font. This file must be unloaded when creating the docker container. The Font will be used to write on the processed image. '''
 
-__FONT_NAME_LINUX = '/root/pyro/python_distributed/fonts/font-reg.ttf'
+_FONT_NAME_LINUX = '/root/pyro/python_distributed/fonts/font-reg.ttf'
 
 _output_file_name = 'output_file.png'
 '''If we are debugging the application (debug=True ). The image will be saved in the local file system using the given name to this variable'''
