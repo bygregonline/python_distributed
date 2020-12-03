@@ -336,7 +336,7 @@ class Server(object):
                 'According to the rule "safe", seed must be an integer')
         np.random.seed(seed)
 
-        a = np.random.rand(18000, 1000)
+        a = np.random.rand(12000, 1000)
         b = np.random.rand(1000, 10000)
         c = np.dot(a, b)
         d['SHAPE'] = c.shape
@@ -385,6 +385,8 @@ class TestStringMethods(unittest.TestCase):
         '''The server variable should be called instead of building the object inside the test methods '''
         self.version = platform.python_version()
         '''The python version  is going to be used to validate the get_fetchdata() method '''
+
+
 
     def test_1(self):
         '''
@@ -476,37 +478,26 @@ class TestStringMethods(unittest.TestCase):
         '''
 
         print('Running test for  process_image')
-        self.assertRaises(TypeError, self.server.process_image,
-                          greyscaeele='greyscale')
-        self.assertEqual(self.server.process_image(
-            img_format=None)['ERROR'], 'INVALID IMG_FORMAT')
-        self.assertEqual(self.server.process_image(
-            img_format='GIF')['ERROR'], 'INVALID IMG_FORMAT')
-        self.assertEqual(self.server.process_image(
-            greyscale='GIF')['ERROR'], 'INVALID GREYSCALE')
-        self.assertEqual(self.server.process_image(
-            greyscale=None)['ERROR'], 'INVALID GREYSCALE')
-        self.assertEqual(self.server.process_image(
-            greyscale=None)['ERROR'], 'INVALID GREYSCALE')
-        self.assertEqual(self.server.process_image(color=[])
-                         ['ERROR'], 'INVALID COLOR FORMAT')
-        self.assertEqual(self.server.process_image(color=())
-                         ['ERROR'], 'INVALID COLOR FORMAT')
-        self.assertEqual(self.server.process_image(
-            color=((None, 7, 5, -1)))['ERROR'], 'INVALID COLOR FORMAT')
-        self.assertEqual(self.server.process_image(color=((0, 267, 5, 1)))[
-                         'ERROR'], 'INVALID COLOR FORMAT')
-        self.assertEqual(self.server.process_image(
-            url='')['ERROR'], 'INTERNET ERROR')
-        self.assertEqual(self.server.process_image(
-            url='https://github.com/bygregonline/itunestomosaic/raw/master/orginal.jp')['ERROR'], 'INTERNET ERROR')
-        self.assertEqual(self.server.process_image(
-            url='https://github.com/bygregonline/itunestomosaic/raw/master/orginal.jp')['STATUS'], 404)
-        self.assertEqual(type(self.server.process_image()), dict)
+        self.assertRaises(TypeError, self.server.process_image, greyscaeele='greyscale')
+        self.assertEqual(self.server.process_image( img_format=None)['ERROR'], 'INVALID IMG_FORMAT')
+        self.assertEqual(self.server.process_image(img_format='GIF')['ERROR'], 'INVALID IMG_FORMAT')
+        self.assertEqual(self.server.process_image( greyscale='GIF')['ERROR'], 'INVALID GREYSCALE')
+        self.assertEqual(self.server.process_image( greyscale=None)['ERROR'], 'INVALID GREYSCALE')
+        self.assertEqual(self.server.process_image(greyscale=None)['ERROR'], 'INVALID GREYSCALE')
+        self.assertEqual(self.server.process_image(color=[])['ERROR'], 'INVALID COLOR FORMAT')
+        self.assertEqual(self.server.process_image(color=())['ERROR'], 'INVALID COLOR FORMAT')
+        self.assertEqual(self.server.process_image(color=((None, 7, 5, -1)))['ERROR'], 'INVALID COLOR FORMAT')
+        self.assertEqual(self.server.process_image(color=((0, 267, 5, 1)))['ERROR'], 'INVALID COLOR FORMAT')
+        self.assertEqual(self.server.process_image( url='')['ERROR'], 'INTERNET ERROR')
+        self.assertEqual(self.server.process_image( url='https://github.com/bygregonline/itunestomosaic/raw/master/orginal.jp')['ERROR'], 'INTERNET ERROR')
+        self.assertEqual(self.server.process_image( url='https://github.com/bygregonline/itunestomosaic/raw/master/orginal.jp')['STATUS'], 404)
         self.assertEqual(type(self.server.process_image(None)), dict)
-        self.assertEqual(self.server.process_image()['STATUS'], 'OK')
-        self.assertEqual(self.server.process_image()['ERROR'], None)
-        self.assertEqual(type(self.server.process_image()['RAW']), bytes)
+        aux = self.server.process_image()
+        self.assertEqual(aux['STATUS'], 'OK')
+        self.assertEqual(aux['ERROR'], None)
+        self.assertEqual(type(aux), dict)
+        self.assertEqual(type(aux['RAW']), bytes)
+
 
     def test_7(self):
         '''
@@ -519,10 +510,8 @@ class TestStringMethods(unittest.TestCase):
         self.assertRaises(ValueError, self.server.matmul, seed=0.900)
         self.assertRaises(ValueError, self.server.matmul, seed=None)
         self.assertRaises(ValueError, self.server.matmul, seed='0x17')
-        self.assertAlmostEqual(
-            2001823253.9358087, self.server.matmul(0x17)['SOMMATOIRE'])
-        self.assertEqual(type(self.server.matmul(0x17)), dict)
-        self.assertEqual(type(self.server.matmul(0x17)['SHAPE']), tuple)
+        self.assertEqual( type(self.server.matmul(0x17)['SOMMATOIRE']),np.float64)
+
 
     def test_8(self):
         '''
@@ -531,8 +520,7 @@ class TestStringMethods(unittest.TestCase):
         :return: None
         '''
 
-        self.assertRaises(TypeError, self.server.get_neofetch,
-                          greyscaeele='greyscale')
+        self.assertRaises(TypeError, self.server.get_neofetch, greyscaeele='greyscale')
         self.assertEqual(type(self.server.get_neofetch()), str)
 
 
