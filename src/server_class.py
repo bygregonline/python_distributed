@@ -203,14 +203,14 @@ class Server(object):
     def get_funny_text(self, t="sample"):
         '''
         This method just print the famous cow
-         ________
+        ________
         < sample >
         --------
-        \   ^__^
-         \  (oo)\_______
-            (__)\       )\/\
-              ||--WWW |
-                ||     ||
+        \\   ^__^
+        \\  (oo)\_______
+        .   (__)\       )\/\
+        .      ||--WWW |
+        .      ||     ||
 
 
         :param t: t
@@ -515,7 +515,7 @@ class TestStringMethods(unittest.TestCase):
 
     def test_8(self):
         '''
-         Runs all test against get_neofetch method
+        Runs all test against get_neofetch method
 
         :return: None
         '''
