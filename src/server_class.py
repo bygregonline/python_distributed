@@ -336,7 +336,7 @@ class Server(object):
                 'According to the rule "safe", seed must be an integer')
         np.random.seed(seed)
 
-        a = np.random.rand(12000, 1000)
+        a = np.random.rand(1200, 1000)
         b = np.random.rand(1000, 10000)
         c = np.dot(a, b)
         d['SHAPE'] = c.shape
