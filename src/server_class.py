@@ -61,7 +61,7 @@ class Server(object):
     Main Object
 
     Args:
-        object ([type]): Extends from object 
+    object ([type]): Extends from object 
     '''
 
     def __init__(self):
