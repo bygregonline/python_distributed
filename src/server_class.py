@@ -9,25 +9,31 @@ The main idea behind this code is  demonstrate the use of Pyro4.
 
 """
 
+import logging
+import os
+import platform
+import subprocess
+import sys
+import unittest
+from datetime import datetime
+from io import StringIO, BytesIO
 
 import Pyro4
-from aniachi.systemUtils import Welcome as W
+import numpy as np
 import psutil
-from cowpy import cow
-from io import StringIO, BytesIO
 import requests
 from PIL import Image
 from PIL import ImageFont, ImageDraw
-from datetime import datetime
-import logging
-import os
-import sys
-import numpy as np
-import unittest
-import platform
+from aniachi.systemUtils import Welcome as W
 from aniachi.timeUtils import elapsedtime as Et
-import subprocess
-import sys
+from cowpy import cow
+from termcolor import colored
+import matplotlib.pyplot as plt
+import matplotlib
+#matplotlib.use('TkAgg')
+matplotlib.use('Agg')
+import base64
+
 
 
 log_file = 'pyro4log.log'
@@ -39,6 +45,9 @@ log_path = '/tmp/distribuited'
 _background_image = 'common.png'
 '''This image is going to be used as a watermark in the upper right side of the processed image by your server class.'''
 
+
+
+
 _FONT_NAME_MAC = 'Helvetica.ttc'
 '''The name of the file that contains the font. This file must be unloaded when creating the docker container. The Font will be used to write on the processed image. '''
 
@@ -47,7 +56,7 @@ _FONT_NAME_LINUX = '/root/pyro4/python_distributed/fonts/font-reg.ttf'
 _output_file_name = 'output_file.png'
 '''If we are debugging the application (debug=True ). The image will be saved in the local file system using the given name to this variable'''
 
-_debug = True
+_debug = False
 '''Debug flag '''
 
 PORT = 9000
@@ -55,13 +64,13 @@ PORT = 9000
 
 
 @Pyro4.expose
-@Pyro4.behavior(instance_mode="single")
+@Pyro4.behavior(instance_mode="percall")
 class Server(object):
     '''
     Main Object
 
     Args:
-    object ([type]): Extends from object 
+    object ([type]): Extends from object
     '''
 
     def __init__(self):
@@ -76,8 +85,7 @@ class Server(object):
 
 
         """
-        print('BUILD OBJECT FROM REMOTE IP '+str(Pyro4.current_context.client.sock.getpeername()
-                                                 [0]) if Pyro4.current_context.client is not None else 'LOCAL BUILD')
+        print('BUILD OBJECT FROM REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[0]) if Pyro4.current_context.client is not None else 'LOCAL BUILD')
 
         current_path = os.path.join(log_path, log_file)
         print('Logger  file @ ', current_path)
@@ -90,18 +98,14 @@ class Server(object):
         logging.basicConfig(filename=current_path, format='%(asctime)s %(levelname)-8s -- %(message)s --',
                             level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
         logging.info('INIT MAIN OBJECT')
-        logging.info('BUILD OBJECT FOR REMOTE IP '+str(Pyro4.current_context.client.sock.getpeername()
-                                                       [0]) if Pyro4.current_context.client is not None else 'LOCAL BUILD')
+        logging.info('BUILD OBJECT FOR REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[0]) if Pyro4.current_context.client is not None else 'LOCAL BUILD')
         try:
             self.watermark = Image.open(_background_image).resize((200, 250))
             '''WATERMARK PICTURE  TO BE USED AS BAXKGROUND'''
-            logging.info(
-                "READING BACKGROUD IMAGE {0}".format(_background_image))
+            logging.info( "READING BACKGROUD IMAGE {0}".format(_background_image))
         except Exception as e:
-            logging.critical(
-                "SERVER CAN'T READ BACKGROUD IMAGE {0}".format(_background_image))
-            print("SERVER CANOT READ BACKGROUD IMAGE {0} ... EXIT".format(
-                _background_image))
+            logging.critical("SERVER CAN'T READ BACKGROUD IMAGE {0}".format(_background_image))
+            print("SERVER CANOT READ BACKGROUD IMAGE {0} ... EXIT".format(_background_image))
             sys.exit(-1)
         try:
             if sys.platform == 'linux':
@@ -118,11 +122,13 @@ class Server(object):
                 sys.exit(-1)
 
         except Exception as e:
-            logging.critical(
-                " SERVER CAN'T READ FONT FILE  ... EXIT")
-            print(
-                "SERVER CAN'T READ FONT FILE   ... EXIT")
+            logging.critical(" SERVER CAN'T READ FONT FILE  ... EXIT")
+            print("SERVER CAN'T READ FONT FILE   ... EXIT")
             sys.exit(-1)
+
+    #
+
+    #
 
     @staticmethod
     def validate_rbga(t):
@@ -136,8 +142,11 @@ class Server(object):
                 0 <= octet <= 255 for octet in t):
             pass
         else:
-            raise ValueError(
-                'Color must be a tuple of 4 octets like (14,32,41,12)')
+            raise ValueError('Color must be a tuple of 4 octets like (14,32,41,12)')
+
+    #
+
+    #
 
     def get_server_info(self, format='json'):
         '''
@@ -150,9 +159,13 @@ class Server(object):
         '''
 
         logging.info('CALLING get_server_info() FROM  REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[
-            0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
+                                                                            0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
 
         return W.get_fetchdata(format=format)
+
+    #
+
+    #
 
     def get_cpu_snapshot(self, format=str):
         '''
@@ -163,41 +176,60 @@ class Server(object):
         :rtype: dict
         '''
         logging.info('CALLING get_cpu_snapshot() FROM  REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[
-            0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
+                                                                    0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
         d = dict()
         for i, percentage in enumerate(psutil.cpu_percent(percpu=True, interval=1)):
-            d['core '+str(i)] = f'{percentage} %'.format(
-                percentage) if format == str else percentage
+            d['core ' + str(i)] = f'{percentage} %'.format(percentage) if format == str else percentage
         return d
 
-    def __get_str_to_log(self, params, f_name):
+    #
+
+
+
+
+    #
+
+    @staticmethod
+    def _get_str_to_log(params, f_name):
         '''
 
+        :param params:
+        :param f_name:
+        :return:
         '''
         del (params['self'])
         s = StringIO()
         s.write(f_name)
         s.write('(')
+        key_values = StringIO()
+
         for t in params.keys():
-            s.write(t)
-            s.write(':')
-            s.write(str(params[t]))
-            s.write(', ')
+            key_values.write(t)
+            key_values.write('=')
+            key_values.write('\''+params[t]+'\'' if type(params[t])==str else str(params[t]))
+            key_values.write(', ')
+
+        if params.keys():
+            s.write(key_values.getvalue()[:-2])
 
         s.write(')')
         return s.getvalue()
+
+    #
+
+
+
+    #
 
     def get_cow_cpu(self):
         '''
         :return:
         '''
-        logging.info(
-            'CALLING get_cow_cpu() FROM  REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[
-                0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
+        logging.info( 'CALLING get_cow_cpu() FROM  REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
         d = self.get_cpu_snapshot(format=None)
         keys = d.keys()
         s = StringIO()
-        [s.write(k+':  '+str(d[k])+'\n') for k in keys]
+        [s.write(k + ':  ' + str(d[k]) + '\n') for k in keys]
         return self.get_funny_text(s.getvalue())
 
     def get_funny_text(self, t="sample"):
@@ -217,15 +249,14 @@ class Server(object):
         :return: The ascii cow
         '''
 
-        logging.info('CALLING get_funny_text() FROM  REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[
-            0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
+        logging.info('CALLING get_funny_text() FROM  REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
         if type(t) is not str:
             raise ValueError('expected string got {0}'.format(type(t)))
         cheese = cow.www()
         msg = cheese.milk(t)
         return msg
 
-    def process_image(self, url='https://github.com/bygregonline/itunestomosaic/raw/master/orginal.jpg',  greyscale=False, color=(245, 0, 0, 225), img_format='PNG'):
+    def process_image(self, url='https://github.com/bygregonline/itunestomosaic/raw/master/orginal.jpg', greyscale=False, color=(245, 0, 0, 225), img_format='PNG'):
         '''
 
         :param url:
@@ -236,9 +267,7 @@ class Server(object):
         :return:
         '''
 
-        logging.info(
-            'CALLING '+self.__get_str_to_log(locals(), 'process_image')+' FROM  REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[
-                0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
+        logging.info('CALLING ' + Server._get_str_to_log(locals(), 'process_image') + ' FROM  REMOTE IP ' + str( Pyro4.current_context.client.sock.getpeername()[0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
 
         try:
 
@@ -249,26 +278,20 @@ class Server(object):
                 Server.validate_rbga(color)
             except Exception as e:
                 d['ERROR'] = 'INVALID COLOR FORMAT'
-                d['STATUS'] = 'INVALID COLOR FORMAT {0} INSTEAD OF {1}'.format(
-                    e, color)
-                logging.error(
-                    'INVALID COLOR FORMAT {0} INSTEAD OF {1}'.format(e, color))
+                d['STATUS'] = 'INVALID COLOR FORMAT {0} INSTEAD OF {1}'.format(e, color)
+                logging.error('INVALID COLOR FORMAT {0} INSTEAD OF {1}'.format(e, color))
 
                 return d
 
             if type(greyscale) is not bool:
                 d['ERROR'] = 'INVALID GREYSCALE'
-                d['STATUS'] = 'GREYSCALE MUST BE True or False INSTEAD OF {0}'.format(
-                    greyscale)
-                logging.error(
-                    'GREYSCALE MUST BE True or False INSTEAD OF {0}'.format(greyscale))
+                d['STATUS'] = 'GREYSCALE MUST BE True or False INSTEAD OF {0}'.format(greyscale)
+                logging.error('GREYSCALE MUST BE True or False INSTEAD OF {0}'.format(greyscale))
                 return d
             if not (type(img_format) is str and img_format.upper() in ['JPG', 'PNG']):
                 d['ERROR'] = 'INVALID IMG_FORMAT'
-                d['STATUS'] = 'IMG_FORMAT MUST BE JPG or PNG INSTEAD OF {0}'.format(
-                    img_format)
-                logging.error(
-                    'IMG_FORMAT MUST BE JPG or PNG INSTEAD OF {0}'.format(img_format))
+                d['STATUS'] = 'IMG_FORMAT MUST BE JPG or PNG INSTEAD OF {0}'.format(img_format)
+                logging.error('IMG_FORMAT MUST BE JPG or PNG INSTEAD OF {0}'.format(img_format))
                 return d
 
             try:
@@ -278,8 +301,7 @@ class Server(object):
                 if response.status_code != 200:
                     d['ERROR'] = 'INTERNET ERROR'
                     d['STATUS'] = response.status_code
-                    logging.error('INTERNET ERROR {0}'.format(
-                        response.status_code))
+                    logging.error('INTERNET ERROR {0}'.format(response.status_code))
                     return d
             except Exception as e:
                 logging.exception('INTERNET ERROR {0}'.format(e))
@@ -323,6 +345,11 @@ class Server(object):
             logging.exception('UNHANDLED EXCEPTION')
             print('ERORR->', e)
 
+
+    #
+
+    #
+
     def matmul(self, seed=23):
         '''
         TDIO
@@ -332,11 +359,10 @@ class Server(object):
         d = dict()
         et = Et()
         if type(seed) is not int:
-            raise ValueError(
-                'According to the rule "safe", seed must be an integer')
+            raise ValueError('According to the rule "safe", seed must be an integer')
         np.random.seed(seed)
 
-        a = np.random.rand(1200, 1000)
+        a = np.random.rand(12000, 1000)
         b = np.random.rand(1000, 10000)
         c = np.dot(a, b)
         d['SHAPE'] = c.shape
@@ -345,6 +371,12 @@ class Server(object):
 
         return d
 
+
+    #
+
+
+    #
+
     def get_neofetch(self):
         '''
 
@@ -352,6 +384,120 @@ class Server(object):
         '''
         result = subprocess.run(['neofetch'], stdout=subprocess.PIPE)
         return result.stdout.decode('utf-8')
+    #
+
+    #
+
+
+
+    def get_normal_distribution(self, size=500, bins=10,mean=0.0,sigma=0.1):
+        d = dict()
+        et = Et()
+
+        logging.info('CALLING ' + Server._get_str_to_log(locals(), 'process_image') + ' FROM  REMOTE IP ' + str(Pyro4.current_context.client.sock.getpeername()[0]) if Pyro4.current_context.client is not None else 'LOCAL CALL')
+        d['ERROR'] = None
+
+        try:
+            size = int(size)
+            if size <=0:
+                raise ValueError('SIZE must be an Integer > 0')
+        except Exception as e:
+            d['ERROR'] = 'INVALID PARAMETERS'
+            d['MSG'] = 'INVALID SIZE VALUE -> ' + str(e)
+            d['ELAPSED'] = et.getElapsedTime()
+            return d
+
+        try:
+            bins = int(bins)
+            if bins <=0:
+                raise ValueError('BINS must be an Integer > 0')
+        except Exception as e:
+            d['ERROR'] = 'INVALID PARAMETERS'
+            d['MSG'] = 'INVALID BINS VALUE -> ' + str(e)
+            d['ELAPSED'] = et.getElapsedTime()
+            return d
+
+        try:
+            mean = float(mean)
+        except Exception as e:
+            d['ERROR'] = 'INVALID PARAMETERS'
+            d['MSG'] = 'INVALID MEAN VALUE -> ' + str(e)
+            d['ELAPSED'] = et.getElapsedTime()
+            return d
+
+        try:
+            sigma= float(sigma)
+            if sigma <=0:
+                raise ValueError('SIGMA must be a float > 0')
+
+        except Exception as e:
+            d['ERROR'] = 'INVALID PARAMETERS'
+            d['MSG'] = 'INVALID SIGMA VALUE -> ' + str(e)
+            d['ELAPSED'] = et.getElapsedTime()
+            return d
+
+        try:
+            s = np.random.normal(mean, sigma, size)
+            d['VALID_MEAN']=bool(abs(mean - np.mean(s)) < 0.01)
+            d['VALID_VARIANCE'] = bool(abs(sigma - np.std(s, ddof=1)) < 0.01)
+
+            fig, ax = plt.subplots(2,figsize=(12, 6), dpi=100)
+            fig.tight_layout(pad=2.5)
+            plt.subplots_adjust(hspace=0.51)
+            count, bins2, ignored = ax[0].hist(s, bins=bins,density=True, alpha=0.18,color='r',rwidth=0.96,edgecolor='blue', linewidth=0.4)
+
+            ax[0].plot(bins2, 1 / (sigma * np.sqrt(2 * np.pi)) *np.exp(- (bins2 - mean) ** 2 / (2 * sigma ** 2)),linewidth = 1.2, color = 'purple' ,alpha=0.54)
+            ax[0].set_ylabel('% of Distribution')
+            ax[0].set_title(f'Histogram mean {mean} & Std Dev of {sigma}')
+            ax[0].grid(True, alpha=.35)
+            ax[0].set_yticklabels([])
+
+            ax[0].spines['right'].set_color('none')
+            ax[0].spines['left'].set_color('none')
+            ax[0].spines['top'].set_color('none')
+
+
+
+
+
+
+            ax[1].scatter(range(0,len(s)),s,alpha=0.083)
+            ax[1].spines['right'].set_color('none')
+            ax[1].spines['top'].set_color('none')
+            ax[1].set_ylabel('Random Value')
+
+            ax1 = plt.axes([-.045, 0.000, 0.2, 0.2], frameon=True)  # Change the numbers in this array to position your image [left, bottom, width, height])
+            ax1.imshow(self.watermark, alpha=0.492)
+            ax1.axis('off')
+
+            plt.figtext(.54, .03, 'LOCAL TIME {1},  FOR IP -> {0},  ELAPSED TIME: {2} '.format(str(Pyro4.current_context.client.sock.getpeername()[0]) if Pyro4.current_context.client is not None else 'LOCAL CALL',datetime.now().strftime( "%Y-%m-%d, %H:%M:%S"), str(round(et.getElapsedTime(), 4))), fontsize=8, alpha=0.91)
+            plt.figtext(.10, .03, 'Created by Greg Flores   ', fontsize=8)
+
+            d['DATA'] = s.tolist()
+
+            figure = BytesIO()
+            plt.savefig(figure, format='png', dpi=100)
+            d['IMG'] = base64.b64encode(figure.getvalue()).decode()
+
+
+            if _debug:
+                pass
+                #plt.show()
+
+        except Exception as e:
+            d['ERROR'] = 'TODO '
+            d['MSG'] = 'TODO ' + str(e)
+            d['ELAPSED'] = et.getElapsedTime()
+
+            print('Exception',e)
+
+        d['ELAPSED'] = et.getElapsedTime()
+        return d
+
+    @Pyro4.callback
+    def call(self):
+        print('CLLAB ACK')
+
 
     def __str__(self):
         '''
@@ -387,14 +533,14 @@ class TestStringMethods(unittest.TestCase):
         '''The python version  is going to be used to validate the get_fetchdata() method '''
 
 
-
     def test_1(self):
         '''
         Runs all test for the method get_funny_text()
 
         :return: None
         '''
-        print('Running test for  get_funny_text')
+
+        print(colored('\nRunning test for  get_funny_text', 'magenta'))
         self.assertEqual(type(self.server.get_funny_text()), str)
         self.assertRaises(ValueError, self.server.get_funny_text, None)
         self.assertRaises(ValueError, self.server.get_funny_text, {})
@@ -408,7 +554,8 @@ class TestStringMethods(unittest.TestCase):
 
         :return: None
         '''
-        print('Running test for  get_cow_cpu')
+
+        print(colored('\nRunning test for  get_cow_cpu', 'magenta'))
         self.assertEqual(type(self.server.get_cow_cpu()), str)
         self.assertRaises(TypeError, self.server.get_cow_cpu, None)
         self.assertRaises(TypeError, self.server.get_cow_cpu, 'None')
@@ -421,13 +568,12 @@ class TestStringMethods(unittest.TestCase):
 
         :return: None
         '''
-        print('Running test for  get_cpu_snapshot')
 
+        print(colored('\nRunning test for  get_cpu_snapshot', 'magenta'))
         self.assertRaises(TypeError, self.server.get_cpu_snapshot, l='None')
         self.assertEqual(type(self.server.get_cpu_snapshot()), dict)
         self.assertEqual(list(self.server.get_cpu_snapshot())[0][0:4], 'core')
-        self.assertEqual(
-            type(list(self.server.get_cpu_snapshot(format=None).values())[0]), float)
+        self.assertEqual(type(list(self.server.get_cpu_snapshot(format=None).values())[0]), float)
     #
 
     #
@@ -437,7 +583,8 @@ class TestStringMethods(unittest.TestCase):
 
         :return: None
         '''
-        print('Running test for  validate_rbga')
+
+        print(colored('\nRunning test for  validate_rbga', 'magenta'))
         self.assertRaises(TypeError, Server.validate_rbga)
         self.assertRaises(ValueError, Server.validate_rbga, None)
         self.assertRaises(ValueError, Server.validate_rbga, (None, 7, 5, -1))
@@ -457,13 +604,11 @@ class TestStringMethods(unittest.TestCase):
 
         :return: None
         '''
-        print('Running test for  get_server_info')
+        print(colored('\nRunning test for  process_image', 'magenta'))
         self.assertIs(type(self.server.get_server_info(format=dict)), dict)
         self.assertIs(type(self.server.get_server_info()), str)
-        self.assertIs(type(self.server.get_server_info(
-            format=dict)['Python Version']), str)
-        self.assertEqual(self.server.get_server_info(
-            format=dict)['Python Version'], self.version)
+        self.assertIs(type(self.server.get_server_info(format=dict)['Python Version']), str)
+        self.assertEqual(self.server.get_server_info(format=dict)['Python Version'], self.version)
         self.assertNotEqual(type(self.server.get_server_info(None)), str)
 
     #
@@ -477,7 +622,7 @@ class TestStringMethods(unittest.TestCase):
         :return: None
         '''
 
-        print('Running test for  process_image')
+        print(colored('\nRunning test for  process_image', 'magenta'))
         self.assertRaises(TypeError, self.server.process_image, greyscaeele='greyscale')
         self.assertEqual(self.server.process_image( img_format=None)['ERROR'], 'INVALID IMG_FORMAT')
         self.assertEqual(self.server.process_image(img_format='GIF')['ERROR'], 'INVALID IMG_FORMAT')
@@ -505,8 +650,8 @@ class TestStringMethods(unittest.TestCase):
 
         :return:  None
         '''
-        self.assertRaises(TypeError, self.server.matmul,
-                          greyscaeele='greyscale')
+        print(colored('\nRunning test for  matmul', 'magenta'))
+        self.assertRaises(TypeError, self.server.matmul,greyscaeele='greyscale')
         self.assertRaises(ValueError, self.server.matmul, seed=0.900)
         self.assertRaises(ValueError, self.server.matmul, seed=None)
         self.assertRaises(ValueError, self.server.matmul, seed='0x17')
@@ -519,9 +664,83 @@ class TestStringMethods(unittest.TestCase):
 
         :return: None
         '''
-
+        print(colored('\nRunning test for  get_neofetch', 'magenta'))
         self.assertRaises(TypeError, self.server.get_neofetch, greyscaeele='greyscale')
         self.assertEqual(type(self.server.get_neofetch()), str)
+
+
+    def test_9(self):
+        '''
+        Validate Pyro configuration
+
+        :return: None
+        '''
+        print(colored('\nRunning test for  Pyro Settings', 'magenta'))
+        self.assertEqual(self.server._pyroExposed,True)
+        self.assertEqual(self.server._pyroInstancing[0], 'percall')
+        self.assertEqual(self.server._pyroInstancing[1], None)
+        
+        
+
+
+    def test_10(self):
+        '''
+        Runs all test against _get_str_to_log static method
+
+        :return: None
+        '''
+
+        print(colored('\nRunning test for  _get_str_to_log','magenta'))
+        self.assertRaises(TypeError, Server._get_str_to_log, greyscaeele='greyscale')
+        self.assertRaises(TypeError, Server._get_str_to_log, ({'ke', 'aux'}, ''))
+        self.assertRaises(TypeError, Server._get_str_to_log, {'ke', 'aux'}, '')
+        self.assertRaises(TypeError, Server._get_str_to_log, {'ke': 'aux'})
+        self.assertRaises(KeyError, Server._get_str_to_log, {'ke': 'aux'}, '')
+        self.assertEqual(Server._get_str_to_log({'self': 'emp'}, 'temporal'), 'temporal()')
+        self.assertEqual(type(Server._get_str_to_log({'self': 'emp'}, 'temporal')), str)
+        self.assertEqual(Server._get_str_to_log({'self': 'emp', 'aux': 'greg', 'int_type': 34}, 'temporal'), "temporal(aux='greg', int_type=34)")
+    #
+
+    #
+
+    def test_11(self):
+        '''
+        Runs all test against get_normal_distribution  method
+
+        :return: None
+        '''
+
+        print(colored('\nRunning test for  get_normal_distribution', 'magenta'))
+        self.assertRaises(TypeError, self.server.get_normal_distribution, some_X_value='greyscale')
+        self.assertEqual(type(self.server.get_normal_distribution()),dict)
+        self.assertEqual(self.server.get_normal_distribution(size=10)['ERROR'], None)
+        self.assertEqual(self.server.get_normal_distribution(size=10.009)['ERROR'], None)
+        self.assertEqual(self.server.get_normal_distribution(size='10')['ERROR'], None)
+        self.assertEqual(type(self.server.get_normal_distribution(size='4.04')['ERROR']), str)
+        self.assertEqual(type(self.server.get_normal_distribution(size='AS10jfff')['ERROR']), str)
+        self.assertEqual(self.server.get_normal_distribution(bins=10)['ERROR'], None)
+        self.assertEqual(type(self.server.get_normal_distribution(bins='10.5')['ERROR']), str)
+        self.assertEqual(type(self.server.get_normal_distribution(bins='AS10')['ERROR']), str)
+        self.assertEqual(self.server.get_normal_distribution(bins=10.343)['ERROR'], None)
+        self.assertEqual(type(self.server.get_normal_distribution(bins=-1)['ERROR']), str)
+        self.assertEqual(type(self.server.get_normal_distribution(bins=0)['ERROR']), str)
+        self.assertEqual(self.server.get_normal_distribution(mean=10)['ERROR'], None)
+        self.assertEqual(self.server.get_normal_distribution(mean='10')['ERROR'], None)
+        self.assertEqual(type(self.server.get_normal_distribution(mean='AS10877')['ERROR']), str)
+        self.assertEqual(type(self.server.get_normal_distribution(mean=('10',))['ERROR']), str)
+        self.assertEqual(self.server.get_normal_distribution(mean=-1.3)['ERROR'], None)
+        self.assertEqual(self.server.get_normal_distribution(mean=0.4342)['ERROR'], None)
+        self.assertEqual(self.server.get_normal_distribution(sigma=10)['ERROR'], None)
+        self.assertEqual(self.server.get_normal_distribution(sigma='.10')['ERROR'], None)
+        self.assertEqual(type(self.server.get_normal_distribution(sigma='AS10E',size=1200)['ERROR']), str)
+        self.assertEqual(type(self.server.get_normal_distribution(sigma=('10.4',))['ERROR']), str)
+        self.assertEqual(type(self.server.get_normal_distribution(sigma=-0.0,size=400)['ERROR']), str)
+        self.assertEqual(self.server.get_normal_distribution(sigma=0.4342,size=200)['ERROR'], None)
+        self.assertEqual(len(self.server.get_normal_distribution(sigma=0.4342, size=1200)['DATA']), 1200)
+        self.assertEqual(self.server.get_normal_distribution(sigma=0.1, size=400)['VALID_VARIANCE'], True)
+        self.assertEqual(self.server.get_normal_distribution(sigma=0.1, size=600)['VALID_MEAN'], True)
+        self.assertEqual(type(self.server.get_normal_distribution(sigma=0.2, size=10)['IMG']), str)
+
 
 
 def _start_server():
@@ -540,7 +759,14 @@ if __name__ == '__main__':
     Application entry point
     '''
 
+
+
     cheese = cow.www()
     msg = cheese.milk('Running server on port {0}'.format(PORT))
     print(msg, end='\n\n')
     _start_server()
+
+
+
+
+
