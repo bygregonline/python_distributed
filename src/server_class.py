@@ -30,9 +30,11 @@ from cowpy import cow
 from termcolor import colored
 import matplotlib.pyplot as plt
 import matplotlib
-#matplotlib.use('TkAgg')
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import base64
+from shapely.geometry import LineString
+import scipy.stats
+import faulthandler
 
 
 
@@ -56,12 +58,13 @@ _FONT_NAME_LINUX = '/root/pyro4/python_distributed/fonts/font-reg.ttf'
 _output_file_name = 'output_file.png'
 '''If we are debugging the application (debug=True ). The image will be saved in the local file system using the given name to this variable'''
 
-_debug = False
+_debug = True
 '''Debug flag '''
 
 PORT = 9000
 '''Server port'''
 
+faulthandler.enable()
 
 @Pyro4.expose
 @Pyro4.behavior(instance_mode="percall")
@@ -234,15 +237,8 @@ class Server(object):
 
     def get_funny_text(self, t="sample"):
         '''
-        This method just print the famous cow
-        ________
-        < sample >
-        --------
-        \\   ^__^
-        \\  (oo)\_______
-        .   (__)\       )\/\
-        .      ||--WWW |
-        .      ||     ||
+        This method just print the famous cow sdfdfgdfgdfgdfggdfdfgdfggdfgfdgdf
+
 
 
         :param t: t
@@ -390,7 +386,15 @@ class Server(object):
 
 
 
-    def get_normal_distribution(self, size=500, bins=10,mean=0.0,sigma=0.1):
+    def get_normal_distribution(self, size=50000, bins=10,mean=0.0,sigma=0.1):
+        '''
+
+        :param size:
+        :param bins:
+        :param mean:
+        :param sigma:
+        :return:
+        '''
         d = dict()
         et = Et()
 
@@ -438,33 +442,73 @@ class Server(object):
 
         try:
             s = np.random.normal(mean, sigma, size)
+
             d['VALID_MEAN']=bool(abs(mean - np.mean(s)) < 0.01)
             d['VALID_VARIANCE'] = bool(abs(sigma - np.std(s, ddof=1)) < 0.01)
+
+            mean = np.mean(s)
+            stddev = np.std(s)
+
+            d['REAL_MEAN'] = mean
+            d['REAl_STDDEV'] = stddev
+
 
             fig, ax = plt.subplots(2,figsize=(12, 6), dpi=100)
             fig.tight_layout(pad=2.5)
             plt.subplots_adjust(hspace=0.51)
-            count, bins2, ignored = ax[0].hist(s, bins=bins,density=True, alpha=0.18,color='r',rwidth=0.96,edgecolor='blue', linewidth=0.4)
+            count, bins2, ignored = ax[0].hist(s, bins=bins,density=True, alpha=0.58,color='wheat',rwidth=0.96,edgecolor='blue', linewidth=0.4)
+            curve = 1 / (sigma * np.sqrt(2 * np.pi)) *np.exp(- (bins2 - mean) ** 2 / (2 * sigma ** 2))
 
-            ax[0].plot(bins2, 1 / (sigma * np.sqrt(2 * np.pi)) *np.exp(- (bins2 - mean) ** 2 / (2 * sigma ** 2)),linewidth = 1.2, color = 'purple' ,alpha=0.54)
+            line_stddev_left = mean - stddev
+            line_stddev_right = mean + stddev
+
+
+
+            stddev__left_func = LineString(np.column_stack(([line_stddev_left]*2,[0,14])))
+            stddev__right_func = LineString(np.column_stack(([line_stddev_right] * 2, [0, 14])))
+
+            mean_func = LineString(np.column_stack(([mean] * 2, [0, 14])))
+            curve_func = LineString(np.column_stack(([bins2, curve])))
+
+            inter_std_dev_left = stddev__left_func.intersection(curve_func)
+            inter_std_dev_right = stddev__right_func.intersection(curve_func)
+            inter_std_dev_mean = mean_func.intersection(curve_func)
+
+            ptx= np.linspace(line_stddev_left, line_stddev_right, 10)
+            pty = scipy.stats.norm.pdf(ptx, mean, stddev)
+
+            elements_inside = ((line_stddev_left  < s) &(s <line_stddev_right )).sum()
+            elements_as_percentage = elements_inside/size
+
+
+            ax[0].plot(*curve_func.xy,linewidth = 1.2, color = 'purple' ,alpha=0.54)
             ax[0].set_ylabel('% of Distribution')
-            ax[0].set_title(f'Histogram mean {mean} & Std Dev of {sigma}')
+            ax[0].set_title(f'Histogram mean {mean:0.6f} & Std Dev of {stddev:0.6}')
             ax[0].grid(True, alpha=.35)
             ax[0].set_yticklabels([])
+            ax[0].set_xlabel("The first standard deviation contains {:,} of elements, that's represents {:.2%} ".format(elements_inside,elements_as_percentage))
+
+            ax[0].plot([mean] * 2, [0, inter_std_dev_mean.xy[1][0]], color='blue', alpha=.95, linewidth=1.85, label='Mean')
+
+            ax[0].plot([line_stddev_right] * 2, [0, inter_std_dev_right.xy[1][0]], color='indigo', alpha=.35,linewidth=1.85)
+            ax[0].plot([line_stddev_left]*2,[0,inter_std_dev_left.xy[1][0]], color='indigo', alpha=.35, linewidth=1.85)
+
+            ax[0].fill_between(ptx, pty, alpha=0.52, label='One Standard Deviation')
 
             ax[0].spines['right'].set_color('none')
             ax[0].spines['left'].set_color('none')
             ax[0].spines['top'].set_color('none')
 
-
-
-
-
-
-            ax[1].scatter(range(0,len(s)),s,alpha=0.083)
+            ax[1].scatter(range(0,len(s)),s,alpha=0.083, label='Random Data '+"{:,}".format(len(s)))
             ax[1].spines['right'].set_color('none')
             ax[1].spines['top'].set_color('none')
             ax[1].set_ylabel('Random Value')
+            ax[1].axhline(mean, color='blue',alpha=.85, linewidth=0.6, label='Mean')
+            ax[1].axhline(mean+stddev, color='r', alpha=.45, linewidth=0.35)
+            ax[1].axhline(mean-stddev, color='r', alpha=.45, linewidth=0.35)
+            ax[1].fill_between(range(0,len(s)), mean+stddev, mean-stddev, alpha=0.12,label='One Standard Deviation')
+            ax[1].legend(loc='best', fontsize='xx-small')
+
 
             ax1 = plt.axes([-.045, 0.000, 0.2, 0.2], frameon=True)  # Change the numbers in this array to position your image [left, bottom, width, height])
             ax1.imshow(self.watermark, alpha=0.492)
@@ -481,8 +525,8 @@ class Server(object):
 
 
             if _debug:
-                pass
-                #plt.show()
+                plt.show()
+                exit()
 
         except Exception as e:
             d['ERROR'] = 'TODO '
@@ -494,9 +538,12 @@ class Server(object):
         d['ELAPSED'] = et.getElapsedTime()
         return d
 
-    @Pyro4.callback
-    def call(self):
-        print('CLLAB ACK')
+
+
+
+
+
+
 
 
     def __str__(self):
@@ -604,7 +651,7 @@ class TestStringMethods(unittest.TestCase):
 
         :return: None
         '''
-        print(colored('\nRunning test for  process_image', 'magenta'))
+        print(colored('\nRunning test for  get_server_info', 'magenta'))
         self.assertIs(type(self.server.get_server_info(format=dict)), dict)
         self.assertIs(type(self.server.get_server_info()), str)
         self.assertIs(type(self.server.get_server_info(format=dict)['Python Version']), str)
